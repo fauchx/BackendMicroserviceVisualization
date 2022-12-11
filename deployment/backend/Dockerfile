@@ -16,7 +16,7 @@ COPY ./deployment/backend/start_server.sh /opt/app/backend/buildfiles/start_serv
 #RUN python manage.py collectstatic
 #RUN chown -R www-data:www-data /opt/app/
 
-EXPOSE 8020
+EXPOSE 8002
 STOPSIGNAL SIGTERM
 RUN chmod 777 /opt/app/backend/buildfiles/start_server.sh
 CMD ["/opt/app/backend/buildfiles/start_server.sh"]

@@ -15,8 +15,8 @@ services:
 #      test: [ "CMD-SHELL", "pg_isready -U ${DATABASE_USER}" ]
 #      interval: 5s
 
-  backend:
-    image: backend
+  visualization_backend:
+    image: visualization_backend
     build:
       context: ../
       dockerfile: ./deployment/backend/Dockerfile
@@ -28,16 +28,16 @@ services:
 #        - DATABASE_PORT=${DATABASE_PORT}
     restart: always
     volumes:
-      - django_cache:/opt/app/backend/cache
-      - django_static:/opt/app/static
+      - django_visualization_cache:/opt/app/backend/cache
+      - django_visualization_static:/opt/app/static
 #    depends_on:
 #      db:
 #        condition: service_healthy
     env_file:
       - .env
     ports:
-      - "8020:8020"
+      - "8002:8002"
 
 volumes:
-  django_cache:
-  django_static:
+  django_visualization_cache:
+  django_visualization_static:
