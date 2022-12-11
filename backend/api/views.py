@@ -4,10 +4,8 @@ import spacy
 # Create your views here.
 def api_home(request):
     cadena = request.GET.get('user_stories','')
-    print(cadena)
     suma = 0
-    divisor = 0
-    
+    divisor = 0    
     cadenas = cadena.split(sep='/')
 
     nlp = spacy.load("en_core_web_md")
@@ -20,7 +18,6 @@ def api_home(request):
             divisor += 1
             
     semantic_similarity = suma / divisor
-    print(semantic_similarity)
     data = {"semantic_similarity":semantic_similarity}
     
     return JsonResponse(data)
