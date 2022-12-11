@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-_#uihwxs&n6=kw$g%#s5by*w+gw4bt+3oivrb5q1=ele3)@xow
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -60,6 +60,8 @@ if DEBUG:
         'http://localhost:3000',
         'httpS://localhost:3000',
     ]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 TEMPLATES = [
     {
