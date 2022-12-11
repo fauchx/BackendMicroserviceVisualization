@@ -3,3 +3,7 @@
 # dependencies
 .venv/
 venv/
+
+commands.txt
+
+rest_api.code-workspace
