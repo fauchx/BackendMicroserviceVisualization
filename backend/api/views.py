@@ -26,4 +26,4 @@ def api_home(request):
             
         arraySS.append(semantic_similarity)
     data = {"semantic_similarity":arraySS}
-    return JsonResponse(data)
+    return JsonResponse(data) 
