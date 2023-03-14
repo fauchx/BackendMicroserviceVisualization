@@ -88,6 +88,8 @@ def api_home(request, *args, **kwargs):
                         config_id = ultimo.id, 
                         historias = microservicios
                         )
+                data = {"nueva_config": True}
+                return JsonResponse(data)
             else:
                 data = {"configuraciones": "Hubo un error al consultar el id del ultimo create."}
                 return JsonResponse(data)
