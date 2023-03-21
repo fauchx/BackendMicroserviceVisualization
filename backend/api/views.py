@@ -1,14 +1,15 @@
 from django.http import JsonResponse
 import spacy
-from collections import Counter
+# from collections import Counter
 import json
 from configuraciones.models import Configuracion
 from microservicios.models import Microservicio
 
 ingles = False
 
-def api_home(request, *args, **kwargs):
-    datos_JSON = request.GET.get('configuraciones', '')
+
+def api_home(request):
+    datos_JSON = request.GET.get('configuracion', '')
     if datos_JSON:
         datos_diccionario = json.loads(datos_JSON)
         nom_proyecto = datos_diccionario[0]["userStories"][0]["project"]
@@ -17,33 +18,37 @@ def api_home(request, *args, **kwargs):
         arreglo_stringsHUs = []
         for objeto in datos_diccionario:
             cant_historias = cant_historias + len(objeto["userStories"])
-            cadena_historias = ""; # Todas las historias de un microservicio en un string
+            cadena_historias = ""  # Todas las historias de un microservicio en un string
             for historia in objeto["userStories"]:
                 historia_sin_guion = historia["id"].replace("US", "")
                 historia_sin_guion = historia_sin_guion.replace("-", "")
-                cadena_historias = cadena_historias + historia_sin_guion + "," # Concatena IDs de HUs en string
-                        
+                cadena_historias = cadena_historias + historia_sin_guion + \
+                    ","  # Concatena IDs de HUs en string
+
             cadena_historias = cadena_historias[:-1]
             arreglo_historias = cadena_historias.split(',')
-            nums = [int(x) for x in arreglo_historias] # Convertir arreglo de strings a nummeros
+            # Convertir arreglo de strings a nummeros
+            nums = [int(x) for x in arreglo_historias]
             nums.sort()
             cadena_historias = ""
             for elemento in nums:
-                cadena_historias = cadena_historias + "US" + str(elemento) + "," # Concatena IDs de HUs en string
-                            
+                cadena_historias = cadena_historias + "US" + \
+                    str(elemento) + ","  # Concatena IDs de HUs en string
+
             cadena_historias = cadena_historias[:-1]
-            arreglo_stringsHUs.append(cadena_historias); # Agrega el string de IDs de HUs al arreglo
-        
+            # Agrega el string de IDs de HUs al arreglo
+            arreglo_stringsHUs.append(cadena_historias)
+
         configuraciones = Configuracion.objects.filter(
-            nombre_proyecto = nom_proyecto, 
-            cantidad_microservicios = cant_microservicios,
-            cantidad_historias = cant_historias
-            )
+            nombre_proyecto=nom_proyecto,
+            cantidad_microservicios=cant_microservicios,
+            cantidad_historias=cant_historias
+        )
         if configuraciones:
             for configuracion in configuraciones:
                 registros = Microservicio.objects.filter(
-                    config_id = configuracion.id
-                    )
+                    config_id=configuracion.id
+                )
                 if registros:
                     coincidencias_MSs = 0
                     for i in range(len(arreglo_stringsHUs)):
@@ -52,106 +57,106 @@ def api_home(request, *args, **kwargs):
                                 coincidencias_MSs += 1
 
                     if coincidencias_MSs == cant_microservicios:
-                        data = {"nueva_config": False, "configuracion": configuracion.json_info}
+                        data = {"nueva_config": False,
+                                "configuracion": configuracion.json_info}
                         return JsonResponse(data)
-                    
+
             Configuracion.objects.create(
-                nombre_proyecto = nom_proyecto, 
-                cantidad_microservicios = cant_microservicios,
-                cantidad_historias = cant_historias,
-                json_info = datos_JSON
-                )
+                nombre_proyecto=nom_proyecto,
+                cantidad_microservicios=cant_microservicios,
+                cantidad_historias=cant_historias,
+                json_info=datos_JSON
+            )
             ultimo = Configuracion.objects.all().last()
             if ultimo:
                 for microservicios in arreglo_stringsHUs:
                     Microservicio.objects.create(
-                        config_id = ultimo.id, 
-                        historias = microservicios
-                        )
+                        config_id=ultimo.id,
+                        historias=microservicios
+                    )
                 data = {"nueva_config": True}
                 return JsonResponse(data)
-            else:
-                data = {"configuraciones": "Hubo un error al consultar el id del ultimo create."}
-                return JsonResponse(data)
-                
+            # else:
+            #     data = {"configuraciones": "Hubo un error al consultar el id del ultimo create."}
+            #     return JsonResponse(data)
+
         else:
             Configuracion.objects.create(
-                nombre_proyecto = nom_proyecto, 
-                cantidad_microservicios = cant_microservicios,
-                cantidad_historias = cant_historias,
-                json_info = datos_JSON
-                )
+                nombre_proyecto=nom_proyecto,
+                cantidad_microservicios=cant_microservicios,
+                cantidad_historias=cant_historias,
+                json_info=datos_JSON
+            )
             ultimo = Configuracion.objects.all().last()
             if ultimo:
                 for microservicios in arreglo_stringsHUs:
                     Microservicio.objects.create(
-                        config_id = ultimo.id, 
-                        historias = microservicios
-                        )
+                        config_id=ultimo.id,
+                        historias=microservicios
+                    )
                 data = {"nueva_config": True}
                 return JsonResponse(data)
+            # else:
+            #     data = {"configuraciones": "Hubo un error al consultar el id del ultimo create."}
+            #     return JsonResponse(data)
+
+    else:
+        arrayCadena = request.GET.get('user_stories', '')
+        if arrayCadena:
+            if ingles:
+                nlp = spacy.load("en_core_web_md")
             else:
-                data = {"configuraciones": "Hubo un error al consultar el id del ultimo create."}
-                return JsonResponse(data)
+                nlp = spacy.load("es_core_news_md")
 
-    
-    arrayCadena = request.GET.get('user_stories', '')
-    if arrayCadena:
-        if ingles:
-            nlp = spacy.load("en_core_web_md")
-        else:
-            nlp = spacy.load("es_core_news_md")
-        
-        arraySS = []
-        arrayCadenas = arrayCadena.split(sep='*')
-        for h in range(0, len(arrayCadenas)):
-            suma = 0
-            divisor = 0
-            cadena = arrayCadenas[h]
-            cadenas = cadena.split(sep='/')
-            if len(cadenas) > 1:
-                for i in range(0, len(cadenas) - 1):
-                    for j in range(i+1, len(cadenas)):
-                        doc = nlp(cadenas[0])
-                        hu1 = ''
-                        for token in doc:
-                            pos = token.pos_
-                            if ingles:
-                                if pos == 'NOUN' or pos == 'PROPN':
-                                    hu1 += token.text + ' '
-                            else:
-                                if pos == 'NOUN':
-                                    hu1 += token.text + ' '
+            arraySS = []
+            arrayCadenas = arrayCadena.split(sep='*')
+            for h in range(0, len(arrayCadenas)):
+                suma = 0
+                divisor = 0
+                cadena = arrayCadenas[h]
+                cadenas = cadena.split(sep='/')
+                if len(cadenas) > 1:
+                    for i in range(0, len(cadenas) - 1):
+                        for j in range(i+1, len(cadenas)):
+                            doc = nlp(cadenas[0])
+                            hu1 = ''
+                            for token in doc:
+                                pos = token.pos_
+                                if ingles:
+                                    if pos == 'NOUN' or pos == 'PROPN':
+                                        hu1 += token.text + ' '
                                 else:
-                                    hu1 += token.lemma_ + ' '                        
-                        token1 = nlp(hu1)
+                                    if pos == 'NOUN':
+                                        hu1 += token.text + ' '
+                                    else:
+                                        hu1 += token.lemma_ + ' '
+                            token1 = nlp(hu1)
 
-                        doc = nlp(cadenas[1])
-                        hu2 = ''
-                        for token in doc:
-                            pos = token.pos_
-                            if ingles:
-                                if pos == 'NOUN' or pos == 'PROPN':
-                                    hu2 += token.text + ' '
-                            else:
-                                if pos == 'NOUN':
-                                    hu2 += token.text + ' '
+                            doc = nlp(cadenas[1])
+                            hu2 = ''
+                            for token in doc:
+                                pos = token.pos_
+                                if ingles:
+                                    if pos == 'NOUN' or pos == 'PROPN':
+                                        hu2 += token.text + ' '
                                 else:
-                                    hu2 += token.lemma_ + ' '
-                        token2 = nlp(hu2)
+                                    if pos == 'NOUN':
+                                        hu2 += token.text + ' '
+                                    else:
+                                        hu2 += token.lemma_ + ' '
+                            token2 = nlp(hu2)
 
-                        suma += token1.similarity(token2)
-                        divisor += 1
+                            suma += token1.similarity(token2)
+                            divisor += 1
 
-                semantic_similarity = suma / divisor
-            else:
-                semantic_similarity = 1
+                    semantic_similarity = suma / divisor
+                else:
+                    semantic_similarity = 1
 
-            arraySS.append(semantic_similarity)
+                arraySS.append(semantic_similarity)
 
-        data = {"semantic_similarity": arraySS} 
-        return JsonResponse(data)
-
+            data = {"semantic_similarity": arraySS}
+            return JsonResponse(data)
 
 
 # if ingles:
