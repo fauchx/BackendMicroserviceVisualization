@@ -5,7 +5,7 @@ import json
 from configuraciones.models import Configuracion
 from microservicios.models import Microservicio
 
-ingles = False
+ingles = True
 
 
 def api_home(request):
