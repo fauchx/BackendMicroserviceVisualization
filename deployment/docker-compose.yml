@@ -27,6 +27,7 @@ services:
 #        - DATABASE_HOST=${DATABASE_HOST}
 #        - DATABASE_PORT=${DATABASE_PORT}
     restart: always
+    command: python manage.py runserver 0.0.0.0:8002
     volumes:
       - django_visualization_cache:/opt/app/backend/cache
       - django_visualization_static:/opt/app/static

@@ -1,4 +1,5 @@
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 import spacy
 # from collections import Counter
 import json
@@ -8,8 +9,9 @@ from microservicios.models import Microservicio
 ingles = True
 
 
+@csrf_exempt
 def api_home(request):
-    datos_JSON = request.GET.get('configuracion', '')
+    datos_JSON = request.POST.get('configuracion', '')
     if datos_JSON:
         datos_diccionario = json.loads(datos_JSON)
         nom_proyecto = datos_diccionario[0]["userStories"][0]["project"]
@@ -101,7 +103,7 @@ def api_home(request):
             #     return JsonResponse(data)
 
     else:
-        arrayCadena = request.GET.get('user_stories', '')
+        arrayCadena = request.POST.get('user_stories', '')
         if arrayCadena:
             if ingles:
                 nlp = spacy.load("en_core_web_md")
