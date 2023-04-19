@@ -11,9 +11,13 @@ ingles = True
 
 @csrf_exempt
 def api_home(request):
-    datos_JSON = request.POST.get('configuracion', '')
-    if datos_JSON:
-        JSON = json.loads(datos_JSON)
+    if request.method != "POST":
+        return JsonResponse({})
+
+    user_stories = request.POST.get('user_stories', '')
+    if not user_stories:
+        JSON = json.loads(request.body)
+        datos_JSON = json.dumps(JSON)
         nom_proyecto = JSON[0]["userStories"][0]["project"]
         cant_microservicios = len(JSON)
         cant_historias = 0
@@ -169,6 +173,7 @@ def api_home(request):
             data = {"semantic_similarity": arraySS}
             return JsonResponse(data)
 
+    return JsonResponse({"invalid": request.POST})
 
 # if ingles:
 #     nlp = spacy.load("en_core_web_md")
