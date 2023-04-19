@@ -13,82 +13,74 @@ ingles = True
 def api_home(request):
     datos_JSON = request.POST.get('configuracion', '')
     if datos_JSON:
-        datos_diccionario = json.loads(datos_JSON)
-        nom_proyecto = datos_diccionario[0]["userStories"][0]["project"]
-        cant_microservicios = len(datos_diccionario)
+        JSON = json.loads(datos_JSON)
+        nom_proyecto = JSON[0]["userStories"][0]["project"]
+        cant_microservicios = len(JSON)
         cant_historias = 0
         arreglo_stringsHUs = []
-        for objeto in datos_diccionario:
-            cant_historias = cant_historias + len(objeto["userStories"])
+        for microservicio in JSON:
+            cant_historias = cant_historias + len(microservicio["userStories"])
             cadena_historias = ""  # Todas las historias de un microservicio en un string
-            for historia in objeto["userStories"]:
-                historia_sin_guion = historia["id"].replace("US", "")
-                historia_sin_guion = historia_sin_guion.replace("-", "")
+            for historia in microservicio["userStories"]:
+                historia_sin_guion = historia["id"].replace("US", "") # Quita "US" de historias
+                historia_sin_guion = historia_sin_guion.replace("-", "") # Quita "-" de historias
                 cadena_historias = cadena_historias + historia_sin_guion + \
-                    ","  # Concatena IDs de HUs en string
+                    ","  # Concatena números (IDs) de HUs en string
 
-            cadena_historias = cadena_historias[:-1]
-            arreglo_historias = cadena_historias.split(',')
-            # Convertir arreglo de strings a nummeros
-            nums = [int(x) for x in arreglo_historias]
-            nums.sort()
+            cadena_historias = cadena_historias[:-1] # Quita la última coma de la cadena de números (IDs) de historias
+            arreglo_historias = cadena_historias.split(',') # Pone los números de HUs en un arreglo
+            
+            nums = [int(x) for x in arreglo_historias] # Convierte el arreglo de strings a enteros
+            nums.sort() # Acomoda en orden el arreglo de enteros
             cadena_historias = ""
             for elemento in nums:
+                # Agregar "US" a IDs de HUs de un MS y concatenarlos en un string
                 cadena_historias = cadena_historias + "US" + \
-                    str(elemento) + ","  # Concatena IDs de HUs en string
+                    str(elemento) + "," 
 
-            cadena_historias = cadena_historias[:-1]
-            # Agrega el string de IDs de HUs al arreglo
-            arreglo_stringsHUs.append(cadena_historias)
+            cadena_historias = cadena_historias[:-1] # Quita la última coma del string de IDs de HUs
+            
+            arreglo_stringsHUs.append(cadena_historias) # Agrega el string de IDs de HUs al arreglo de HUs de MSs
 
-        configuraciones = Configuracion.objects.filter(
+        # Buscar en la tabla 'Configuraciones' registros que cumplan con los criterios de: nombre de proyecto,
+        # cantidad de microservicios y cantidad de historias en un microservicio
+        configuraciones = Configuracion.objects.filter( 
             nombre_proyecto=nom_proyecto,
             cantidad_microservicios=cant_microservicios,
             cantidad_historias=cant_historias
         )
-        if configuraciones:
-            for configuracion in configuraciones:
+        if configuraciones: # Si hay coincidencias:
+            for configuracion in configuraciones: # Por cada configuración, buscar en la
+                # tabla 'Microservicios' registros que cumplan con el criterio de ID de configuración
                 registros = Microservicio.objects.filter(
                     config_id=configuracion.id
                 )
-                if registros:
+                if registros: # Si hay coincidencias:
                     coincidencias_MSs = 0
+                    
+                    # Comparar si los string de IDs que se envían desde el visualizador y los strings de IDs
+                    # que se trajeron desde la BD son iguales
                     for i in range(len(arreglo_stringsHUs)):
                         for j in range(len(registros)):
                             if arreglo_stringsHUs[i] == registros[j].historias:
                                 coincidencias_MSs += 1
 
+                    # Si todos son iguales se retorna el JSON de la base de datos
                     if coincidencias_MSs == cant_microservicios:
                         data = {"nueva_config": False,
                                 "configuracion": configuracion.json_info}
                         return JsonResponse(data)
 
+            # Si no todos los strings de HUs son iguales entonces se guarda la nueva configuración en BD
             Configuracion.objects.create(
                 nombre_proyecto=nom_proyecto,
                 cantidad_microservicios=cant_microservicios,
                 cantidad_historias=cant_historias,
                 json_info=datos_JSON
             )
-            ultimo = Configuracion.objects.all().last()
-            if ultimo:
-                for microservicios in arreglo_stringsHUs:
-                    Microservicio.objects.create(
-                        config_id=ultimo.id,
-                        historias=microservicios
-                    )
-                data = {"nueva_config": True}
-                return JsonResponse(data)
-            # else:
-            #     data = {"configuraciones": "Hubo un error al consultar el id del ultimo create."}
-            #     return JsonResponse(data)
 
-        else:
-            Configuracion.objects.create(
-                nombre_proyecto=nom_proyecto,
-                cantidad_microservicios=cant_microservicios,
-                cantidad_historias=cant_historias,
-                json_info=datos_JSON
-            )
+             # Consulta para obtener el ID de la configuración que se acaba de guardar en BD y guardar
+             # los registros strings de HUs en la tabla de 'Microservicios'
             ultimo = Configuracion.objects.all().last()
             if ultimo:
                 for microservicios in arreglo_stringsHUs:
@@ -98,9 +90,26 @@ def api_home(request):
                     )
                 data = {"nueva_config": True}
                 return JsonResponse(data)
-            # else:
-            #     data = {"configuraciones": "Hubo un error al consultar el id del ultimo create."}
-            #     return JsonResponse(data)
+            
+        else: # Si no hay registros entonces se guarda la nueva configuración en BD
+            Configuracion.objects.create(
+                nombre_proyecto=nom_proyecto,
+                cantidad_microservicios=cant_microservicios,
+                cantidad_historias=cant_historias,
+                json_info=datos_JSON
+            )
+
+             # Consulta para obtener el ID de la configuración que se acaba de guardar en BD y guardar
+             # los registros strings de HUs en la tabla de 'Microservicios'
+            ultimo = Configuracion.objects.all().last()
+            if ultimo:
+                for microservicios in arreglo_stringsHUs:
+                    Microservicio.objects.create(
+                        config_id=ultimo.id,
+                        historias=microservicios
+                    )
+                data = {"nueva_config": True}
+                return JsonResponse(data)
 
     else:
         arrayCadena = request.POST.get('user_stories', '')
@@ -244,8 +253,7 @@ def api_home(request):
 #     for token in doc:
 #         pos = token.pos_
 #         if pos == 'NOUN' or pos == 'PROPN':
-#             hutoken = [token.text, token.lemma_, token.pos_,
-#                        token.vector_norm, token.has_vector]
+#             hutoken = [token.text, token.lemma_, token.pos_, token.vector_norm, token.has_vector]
 #             listaText += token.text + ' '
 #             listLemmas += token.lemma_ + ' '
 #     lista = [historiaUsuario, listaText, listLemmas]
@@ -304,7 +312,7 @@ def api_home(request):
 
 #     entidadLema = ''
 #     for txt in dicLema:
-#         entidadLema, str(txt[0]) + " "
+#         entidadLema += str(txt[0]) + " "
 
 #     lista = [ms, listaText, listLemmas, entidadText, entidadLema]
 #     return lista
@@ -362,6 +370,7 @@ def api_home(request):
 
 #             # tex = historia.nombre + ":" + historia.descripcion
 #             # tex2 = historia2.nombre + ":" + historia2.descripcion
+
 #             if aplicarEn == 'lemma':
 #                 docl = self.n1p(lem)
 #                 doc2 = self.n1p(lem2)
