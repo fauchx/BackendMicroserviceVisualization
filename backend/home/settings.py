@@ -55,16 +55,34 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'home.urls'
 CORS_URLS_REGEX = r"^/api/.*"
-CORS_ALLOWED_ORIGINS = []
+CORS_ALLOWED_ORIGINS = ["http://*", "https://*"]
+
 
 if DEBUG:
     CORS_ALLOWED_ORIGINS += [
         'http://localhost:3000',
-        'httpS://localhost:3000',
+        'https://localhost:3000',
     ]
 
-CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_HEADERS = [
+    'access-control-allow-origin',
+    'authorization',
+    'content-type',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+
 
 TEMPLATES = [
     {
@@ -90,10 +108,11 @@ WSGI_APPLICATION = 'home.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+       'ENGINE': 'django.db.backends.sqlite3',
+       'NAME': BASE_DIR / 'db.sqlite3',
+   }
 }
+
 
 
 # Password validation

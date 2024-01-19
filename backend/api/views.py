@@ -1,81 +1,99 @@
+# Importación de bibliotecas y modelos necesarios
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import spacy
-# from collections import Counter
 import json
 from configuraciones.models import Configuracion
 from microservicios.models import Microservicio
+from urllib.parse import unquote
 
+# Configuración del idioma (Inglés o Español)
 ingles = True
 
-
+# Vista protegida contra CSRF
 @csrf_exempt
 def api_home(request):
+    print("\n------------- Inicio de la vista api_home -------------")
+
+    # Verificación del método de la solicitud
     if request.method != "POST":
+        print("Solicitud no válida. Se retorna una respuesta vacía.")
         return JsonResponse({})
 
+    # Obtención de la información de historias de usuario desde la solicitud
     user_stories = request.POST.get('user_stories', '')
+
+    # Procesamiento de la información de historias de usuario
     if not user_stories:
+        # Carga de datos JSON desde el cuerpo de la solicitud
         JSON = json.loads(request.body)
         datos_JSON = json.dumps(JSON)
+
+        # Extracción de información específica del primer elemento de userStories
         nom_proyecto = JSON[0]["userStories"][0]["project"]
         cant_microservicios = len(JSON)
         cant_historias = 0
         arreglo_stringsHUs = []
-        for microservicio in JSON:
-            cant_historias = cant_historias + len(microservicio["userStories"])
-            cadena_historias = ""  # Todas las historias de un microservicio en un string
-            for historia in microservicio["userStories"]:
-                historia_sin_guion = historia["id"].replace("US", "") # Quita "US" de historias
-                historia_sin_guion = historia_sin_guion.replace("-", "") # Quita "-" de historias
-                cadena_historias = cadena_historias + historia_sin_guion + \
-                    ","  # Concatena números (IDs) de HUs en string
 
-            cadena_historias = cadena_historias[:-1] # Quita la última coma de la cadena de números (IDs) de historias
-            arreglo_historias = cadena_historias.split(',') # Pone los números de HUs en un arreglo
+        # Iteración sobre cada microservicio en la solicitud
+        for microservicio in JSON:
+            cant_historias += len(microservicio["userStories"])
+            cadena_historias = ""  # String para almacenar IDs de HUs
+
+            # Iteración sobre cada historia de usuario en el microservicio
+            for historia in microservicio["userStories"]:
+                # Eliminación de "US" y "-" de los IDs de historias
+                historia_sin_guion = historia["id"].replace("US", "")
+                historia_sin_guion = historia_sin_guion.replace("-", "")
+                cadena_historias += historia_sin_guion + ","
+
+            # Procesamiento final del string de IDs de HUs
+            cadena_historias = cadena_historias[:-1]
+            arreglo_historias = cadena_historias.split(',')
             
-            nums = [int(x) for x in arreglo_historias] # Convierte el arreglo de strings a enteros
-            nums.sort() # Acomoda en orden el arreglo de enteros
+            # Conversión de IDs a enteros y ordenamiento
+            nums = [int(x) for x in arreglo_historias]
+            nums.sort()
+            
+            # Reconstrucción del string de IDs de HUs con "US" agregado
             cadena_historias = ""
             for elemento in nums:
-                # Agregar "US" a IDs de HUs de un MS y concatenarlos en un string
-                cadena_historias = cadena_historias + "US" + \
-                    str(elemento) + "," 
+                cadena_historias += "US" + str(elemento) + ","
 
-            cadena_historias = cadena_historias[:-1] # Quita la última coma del string de IDs de HUs
-            
-            arreglo_stringsHUs.append(cadena_historias) # Agrega el string de IDs de HUs al arreglo de HUs de MSs
+            cadena_historias = cadena_historias[:-1]
+            arreglo_stringsHUs.append(cadena_historias)
 
-        # Buscar en la tabla 'Configuraciones' registros que cumplan con los criterios de: nombre de proyecto,
-        # cantidad de microservicios y cantidad de historias en un microservicio
-        configuraciones = Configuracion.objects.filter( 
+        # Búsqueda de configuraciones en la base de datos
+        configuraciones = Configuracion.objects.filter(
             nombre_proyecto=nom_proyecto,
             cantidad_microservicios=cant_microservicios,
             cantidad_historias=cant_historias
         )
-        if configuraciones: # Si hay coincidencias:
-            for configuracion in configuraciones: # Por cada configuración, buscar en la
-                # tabla 'Microservicios' registros que cumplan con el criterio de ID de configuración
+
+        # Procesamiento de configuraciones encontradas
+        if configuraciones:
+            for configuracion in configuraciones:
                 registros = Microservicio.objects.filter(
                     config_id=configuracion.id
                 )
-                if registros: # Si hay coincidencias:
+                if registros:
                     coincidencias_MSs = 0
-                    
-                    # Comparar si los string de IDs que se envían desde el visualizador y los strings de IDs
-                    # que se trajeron desde la BD son iguales
+
+                    # Comparación de strings de IDs de HUs entre solicitud y base de datos
                     for i in range(len(arreglo_stringsHUs)):
                         for j in range(len(registros)):
                             if arreglo_stringsHUs[i] == registros[j].historias:
                                 coincidencias_MSs += 1
 
-                    # Si todos son iguales se retorna el JSON de la base de datos
+                    # Si todas las coincidencias son encontradas, se retorna el JSON de la base de datos
                     if coincidencias_MSs == cant_microservicios:
                         data = {"nueva_config": False,
                                 "configuracion": configuracion.json_info}
+                        print("Configuración existente encontrada en la base de datos.")
+                        print("------------- Fin de la vista api_home -------------\n")
                         return JsonResponse(data)
 
-            # Si no todos los strings de HUs son iguales entonces se guarda la nueva configuración en BD
+            # Si no se encuentran todas las coincidencias, se guarda una nueva configuración en la BD
             Configuracion.objects.create(
                 nombre_proyecto=nom_proyecto,
                 cantidad_microservicios=cant_microservicios,
@@ -83,8 +101,7 @@ def api_home(request):
                 json_info=datos_JSON
             )
 
-             # Consulta para obtener el ID de la configuración que se acaba de guardar en BD y guardar
-             # los registros strings de HUs en la tabla de 'Microservicios'
+            # Obtención del ID de la configuración recién guardada y almacenamiento de registros en Microservicios
             ultimo = Configuracion.objects.all().last()
             if ultimo:
                 for microservicios in arreglo_stringsHUs:
@@ -93,9 +110,12 @@ def api_home(request):
                         historias=microservicios
                     )
                 data = {"nueva_config": True}
+                print("Nueva configuración creada y registrada en la base de datos.")
+                print("------------- Fin de la vista api_home -------------\n")
                 return JsonResponse(data)
             
-        else: # Si no hay registros entonces se guarda la nueva configuración en BD
+        else:
+            # Si no se encuentran configuraciones, se guarda una nueva configuración en la BD
             Configuracion.objects.create(
                 nombre_proyecto=nom_proyecto,
                 cantidad_microservicios=cant_microservicios,
@@ -103,8 +123,7 @@ def api_home(request):
                 json_info=datos_JSON
             )
 
-             # Consulta para obtener el ID de la configuración que se acaba de guardar en BD y guardar
-             # los registros strings de HUs en la tabla de 'Microservicios'
+            # Obtención del ID de la configuración recién guardada y almacenamiento de registros en Microservicios
             ultimo = Configuracion.objects.all().last()
             if ultimo:
                 for microservicios in arreglo_stringsHUs:
@@ -113,9 +132,11 @@ def api_home(request):
                         historias=microservicios
                     )
                 data = {"nueva_config": True}
+                print("Nueva configuración creada y registrada en la base de datos.")
+                print("------------- Fin de la vista api_home -------------\n")
                 return JsonResponse(data)
-
     else:
+        # Procesamiento de la cadena de historias de usuario para calcular similitud semántica
         arrayCadena = request.POST.get('user_stories', '')
         if arrayCadena:
             if ingles:
@@ -125,55 +146,68 @@ def api_home(request):
 
             arraySS = []
             arrayCadenas = arrayCadena.split(sep='*')
+            print("ArrayCadenas")
+            print(arrayCadenas)
+
+            # Iteración sobre cada cadena en la solicitud
             for h in range(0, len(arrayCadenas)):
                 suma = 0
                 divisor = 0
                 cadena = arrayCadenas[h]
-                cadenas = cadena.split(sep='/')
-                if len(cadenas) > 1:
-                    for i in range(0, len(cadenas) - 1):
-                        for j in range(i+1, len(cadenas)):
-                            doc = nlp(cadenas[0])
-                            hu1 = ''
-                            for token in doc:
-                                pos = token.pos_
-                                if ingles:
-                                    if pos == 'NOUN' or pos == 'PROPN':
-                                        hu1 += token.text + ' '
-                                else:
-                                    if pos == 'NOUN':
-                                        hu1 += token.text + ' '
-                                    else:
-                                        hu1 += token.lemma_ + ' '
-                            token1 = nlp(hu1)
+                print("Cadena antes del procesamiento:", cadena)
+                
+                # Decodificar caracteres especiales
+                cadena_decodificada = unquote(cadena)
+                
+                # Separar las palabras por '/'
+                palabras = cadena_decodificada.split('/')
 
-                            doc = nlp(cadenas[1])
-                            hu2 = ''
-                            for token in doc:
-                                pos = token.pos_
-                                if ingles:
-                                    if pos == 'NOUN' or pos == 'PROPN':
-                                        hu2 += token.text + ' '
-                                else:
-                                    if pos == 'NOUN':
-                                        hu2 += token.text + ' '
-                                    else:
-                                        hu2 += token.lemma_ + ' '
-                            token2 = nlp(hu2)
+                # Eliminar el carácter '/' de cada palabra y filtrar las palabras no vacías
+                palabras_filtradas = [palabra.strip() for palabra in palabras if palabra.strip()]
 
-                            suma += token1.similarity(token2)
+                # Si no hay palabras, incluir la cadena original
+                if not palabras_filtradas:
+                    palabras_filtradas = [cadena_decodificada]
+
+                print("Cadena después del procesamiento:", ' '.join(palabras_filtradas))
+                
+                if len(palabras_filtradas) > 1:
+                    for i in range(0, len(palabras_filtradas) - 1):
+                        for j in range(i + 1, len(palabras_filtradas)):
+                            # Preprocesamiento de las cadenas antes de enviarlas a spaCy
+                            doc1 = nlp(palabras_filtradas[i])
+                            doc2 = nlp(palabras_filtradas[j])
+
+                            # Cálculo de similitud semántica
+                            suma += doc1.similarity(doc2)
                             divisor += 1
 
-                    semantic_similarity = suma / divisor
+                    semantic_similarity = suma / divisor if divisor > 0 else 0
                 else:
                     semantic_similarity = 1
 
                 arraySS.append(semantic_similarity)
 
             data = {"semantic_similarity": arraySS}
+            print("Similitud semántica calculada y retornada como respuesta.")
+            print("Similitud semantica")
+            print(arraySS)
+            print("------------- Fin de la vista api_home -------------\n")
             return JsonResponse(data)
+        else:
+            print("Solicitud no válida. La cadena de historias de usuario está vacía.")
+            return JsonResponse({})
 
+
+# Configuración de cabeceras para permitir solicitudes desde http://localhost:3000
+    JsonResponse["Access-Control-Allow-Origin"] = "http://localhost:3000"
+    JsonResponse["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    JsonResponse["Access-Control-Allow-Headers"] = "Content-Type"
+
+    print("Solicitud no válida. Se retorna una respuesta con información de solicitud inválida.")
+    print("------------- Fin de la vista api_home -------------\n")
     return JsonResponse({"invalid": request.POST})
+
 
 # if ingles:
 #     nlp = spacy.load("en_core_web_md")
